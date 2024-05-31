@@ -8,7 +8,7 @@ pragma solidity >=0.8.24;
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IVendingMachine {
-  function test2__setVendingMachineRatio(
+  function velorumtest11__setVendingMachineRatio(
     uint256 smartObjectId,
     uint256 inventoryItemIdIn,
     uint256 inventoryItemIdOut,
@@ -16,9 +16,13 @@ interface IVendingMachine {
     uint256 quantityOut
   ) external;
 
-  function test2__executeVendingMachine(uint256 smartObjectId, uint256 quantity, uint256 inventoryItemIdIn) external;
+  function velorumtest11__executeVendingMachine(
+    uint256 smartObjectId,
+    uint256 quantity,
+    uint256 inventoryItemIdIn
+  ) external;
 
-  function test2__calculateOutput(
+  function velorumtest11__calculateOutput(
     uint256 inputRatio,
     uint256 outputRatio,
     uint256 inputAmount

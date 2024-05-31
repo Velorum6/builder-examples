@@ -8,12 +8,21 @@ import { RatioConfig } from "../src/codegen/tables/RatioConfig.sol";
 import { IWorld } from "../src/codegen/world/IWorld.sol";
 
 contract ExecuteVendingMachine is Script {
-  function run(address worldAddress) external {
-    // Load the private key from the `PRIVATE_KEY` environment variable (in .env)
-    // uint256 playerPrivateKey = vm.envUint("PRIVATE_KEY");
+  address private cliente;
 
-    uint256 ephemeralPrivateKey = uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
-    address ephemeralOwner = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
+  constructor() {
+    cliente = msg.sender;
+  }
+  
+  function run(address worldAddress) external {
+    console.log(cliente);
+    console.log("msg sender", msg.sender);
+    // Load the private key from the `PRIVATE_KEY` environment variable (in .env)
+    uint256 playerPrivateKey = vm.envUint("PRIVATE_KEY");
+
+    uint256 ephemeralPrivateKey = uint256(0x0cc9437d02863de5ff33a0c8ca98f406423fbf83730f96f5002ec4ab9a23e94e);
+  
+    address ephemeralOwner = address(0x1692715F39E6d406B17AAA2EF6C8e676e1B6aCaA);
     vm.startBroadcast(ephemeralPrivateKey);
 
     //Read from .env
@@ -21,7 +30,7 @@ contract ExecuteVendingMachine is Script {
     uint256 itemIn = vm.envUint("ITEM_IN_ID");
 
     //The method below will change based on the namespace you have configurd. If the namespace is changed, make sure to update the method name
-    IVendingMachine(worldAddress).test2__executeVendingMachine(smartStorageUnitId, 1, itemIn);
+    IVendingMachine(worldAddress).velorumtest11__executeVendingMachine(smartStorageUnitId, 1, itemIn);
 
     vm.stopBroadcast();
   }

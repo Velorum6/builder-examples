@@ -35,12 +35,13 @@ contract ApproveToken is Script {
     IBaseWorld world = IBaseWorld(worldAddress);
 
     vm.startBroadcast(playerPrivateKey);
-    address itemSellerAddress = IItemSeller(worldAddress).test2__getContractAddress();
+    address itemSellerAddress = IItemSeller(worldAddress).velorumtest11__getContractAddress();
     console.log(itemSellerAddress);
 
     // StoreSwitch.setStoreAddress(address(world));
     IERC20Mintable erc20 = IERC20Mintable(erc20Address);
     console.log(erc20.balanceOf(owner));
+
     erc20.approve(itemSellerAddress, amount * 1 ether);
 
     console.log(erc20.allowance(owner, itemSellerAddress));

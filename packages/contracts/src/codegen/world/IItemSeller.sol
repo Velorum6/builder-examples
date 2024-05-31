@@ -11,24 +11,33 @@ import { ItemSellerERC20Data } from "./../tables/ItemSellerERC20.sol";
  * @dev This interface is automatically generated from the corresponding system contract. Do not edit manually.
  */
 interface IItemSeller {
-  function test2__registerERC20Token(uint256 smartObjectId, address tokenAddress, address receiver) external;
+  function velorumtest11__registerERC20Token(uint256 smartObjectId, address tokenAddress, address receiver) external;
 
-  function test2__updateERC20Receiver(uint256 smartObjectId, address receiver) external;
+  function velorumtest11__updateERC20Receiver(uint256 smartObjectId, address receiver) external;
 
-  function test2__setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price) external;
+  function velorumtest11__setItemPrice(
+    uint256 smartObjectId,
+    uint256 inventoryItemId,
+    uint256 price,
+    uint256 targetQuantity
+  ) external;
 
-  function test2__unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) external;
+  function velorumtest11__unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) external;
 
-  function test2__purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) external;
+  function velorumtest11__purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) external;
 
-  function test2__collectTokens(uint256 smartObjectId) external;
+  function velorumtest11__sellItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) external;
 
-  function test2__getItemPriceData(
+  function velorumtest11__collectTokens(uint256 smartObjectId) external;
+
+  function velorumtest11__getItemPriceData(
     uint256 smartObjectId,
     uint256 inventoryItemId
   ) external returns (ItemPriceData memory);
 
-  function test2__getERC20Data(uint256 smartObjectId) external returns (ItemSellerERC20Data memory);
+  function velorumtest11__getERC20Data(uint256 smartObjectId) external returns (ItemSellerERC20Data memory);
 
-  function test2__getContractAddress() external returns (address);
+  function velorumtest11__getContractAddress() external returns (address);
+
+  function velorumtest11__getQuantity(uint256 smartObjectId, uint256 inventoryItemId) external returns (uint);
 }

@@ -26,7 +26,9 @@ import { FRONTIER_WORLD_DEPLOYMENT_NAMESPACE as DEPLOYMENT_NAMESPACE } from "@ev
 import { ItemSellerERC20, ItemSellerERC20Data } from "../../codegen/tables/ItemSellerERC20.sol";
 import { ItemPrice, ItemPriceData } from "../../codegen/tables/ItemPrice.sol";
 import { Utils as ItemSellerUtils } from "./Utils.sol";
+import { Utils as InventoryUtils } from "@eveworld/world/src/modules/inventory/Utils.sol";
 
+import { IWorld } from "../../codegen/world/IWorld.sol" ;
 /**
  * @dev This contract is an example for extending Inventory functionality from game.
  * This contract implements an ItemSeller that swaps ERC-20 tokens for Inventory items
@@ -34,8 +36,17 @@ import { Utils as ItemSellerUtils } from "./Utils.sol";
 contract ItemSeller is System {
   using InventoryLib for InventoryLib.World;
   using EntityRecordUtils for bytes14;
+  using InventoryUtils for bytes14;
   using ItemSellerUtils for bytes14;
   using SmartDeployableUtils for bytes14;
+
+  struct Item {
+    uint256 itemId; // id of item
+    uint256 price; // price of item (wei)
+    uint256 targetQuantity; // quantity where the price would be the lowest
+  }
+
+  Item[] public Items;
 
   /**
    * @dev Only owner modifer
@@ -44,10 +55,17 @@ contract ItemSeller is System {
     address ssuOwner = IERC721(DeployableTokenTable.getErc721Address(_namespace().deployableTokenTableId())).ownerOf(
       smartObjectId
     );
-    require(_msgSender() == ssuOwner, "Only owner can call this function");
+    require(tx.origin== ssuOwner, "Only owner can call this function");
     _;
   }
 
+  function world() internal view returns (IWorld){
+    return IWorld(_world());
+  }
+
+  function _initialMsgSender() internal view returns (address) {
+    return world().initialMsgSender();
+  }
   /**
    * @dev Register an ERC-20 token to be used for swapping with Inventory items
    * @param smartObjectId The smart object id of the SSU
@@ -86,13 +104,17 @@ contract ItemSeller is System {
    * @param inventoryItemId The item id of the item
    * @param price The price of the item in ERC-20 tokens
    */
-  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price) public onlyOwner(smartObjectId) {
+  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price, uint256 targetQuantity) public onlyOwner(smartObjectId) {
     require(price > 0, "Price cannot be 0");
 
-    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
-    require(ssuData.tokenAddress != address(0), "Invalid Smart Object ID");
+    Items.push(Item(inventoryItemId, price, targetQuantity));
 
-    ItemPrice.set(smartObjectId, inventoryItemId, true, price);
+    // ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
+    // require(ssuData.tokenAddress != address(0), "Invalid Smart Object ID");
+
+    // ItemPrice.set(smartObjectId, inventoryItemId, true, price);
+
+
   }
 
   /**
@@ -110,44 +132,105 @@ contract ItemSeller is System {
    * @param inventoryItemId The item id of the item
    * @param quantity The quantity of the item to purchase
    */
-  function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) public {
+
+function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) public {
     ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
     require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
 
-    ItemPriceData memory itemPriceData = ItemPrice.get(smartObjectId, inventoryItemId);
-    require(itemPriceData.isSet, "Item price not set");
+    uint256 totalAmount = Items[inventoryItemId].price * quantity;
 
-    uint256 totalAmount = itemPriceData.price * quantity;
-    
-    //This function can also be changed to transferFrom if the user has to approve the contract to spend the tokens
-    //Transfer from msg.sender to this contract and then from this contract to the receiver
+    // @ invQuantityAtTheMoment Quantity inside the SSU of said Item when executing this function (HOW DO I GET THIS?) DONE
+    // @ targetQuantity Max quantity set by the owner for said Item (HOW DO I SET & GET THIS?)
+    // @ spreadPercentage Percentage of how full is the inventory for said item
+    // @ spreadPrice Price set by the owner, intended to be the finalPrice when spreadPercentage is at 50%
+    // @ finalPrice Final price of the item!
+    //
+    // spreadPercentage = invQuantityAtTheMoment / targetQuantity 
+    // finalPrice = (spreadPrice * 2) * (1 - spreadPercentage) 
+
+    // 0.9 = 900 / 1000
+    // 20 = (100 * 2) * (1 - 0.9)
+
+    // User pays/receives 20 EVE for the item
+
     console.logAddress(address(this));
-
-    //Transfer tokens from user to this contract
-    IERC20(ssuData.tokenAddress).transferFrom(_msgSender(), address(this), totalAmount);
+    // Transfer tokens from user to this contract
+    IERC20(ssuData.tokenAddress).transferFrom(_initialMsgSender(), address(this), totalAmount);
 
     EntityRecordTableData memory itemOutEntity = EntityRecordTable.get(
-      _namespace().entityRecordTableId(),
-      inventoryItemId
+        _namespace().entityRecordTableId(),
+        inventoryItemId
     );
 
-    if (itemOutEntity.recordExists == false) {
-      revert IInventoryErrors.Inventory_InvalidItem("ItemSeller: item is not created on-chain", itemOutEntity.itemId);
+    if (!itemOutEntity.recordExists) {
+        revert IInventoryErrors.Inventory_InvalidItem("ItemSeller: item is not created on-chain", itemOutEntity.itemId);
     }
 
     InventoryItem[] memory outItems = new InventoryItem[](1);
     outItems[0] = InventoryItem(
-      inventoryItemId,
-      _msgSender(),
-      itemOutEntity.itemId,
-      itemOutEntity.typeId,
-      itemOutEntity.volume,
-      quantity
+        inventoryItemId,
+        _initialMsgSender(),
+        itemOutEntity.itemId,
+        itemOutEntity.typeId,
+        itemOutEntity.volume,
+        quantity
     );
 
-    _inventoryLib().inventoryToEphemeralTransfer(smartObjectId, outItems);
-  }
+  /*
+    struct InventoryItem {
+      uint256 inventoryItemId;
+      address owner;
+      uint256 itemId;
+      uint256 typeId;
+      uint256 volume;
+      uint256 quantity;
+    }
+  */
 
+
+    _inventoryLib().inventoryToEphemeralTransfer(smartObjectId, outItems);
+}
+
+
+  /**
+   * @dev sell an item for ERC-20 tokens
+   * @param smartObjectId The smart object id of the SSU
+   * @param inventoryItemId The item id of the item
+   * @param quantity The quantity of the item to sell
+   */
+
+  function sellItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 quantity) public {
+
+    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
+    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
+
+
+    uint256 totalAmount = Items[inventoryItemId].price * quantity;
+
+
+    IERC20(ssuData.tokenAddress).transfer(_initialMsgSender(), totalAmount);
+        
+        EntityRecordTableData memory itemInEntity = EntityRecordTable.get(
+        _namespace().entityRecordTableId(),
+        inventoryItemId
+    );
+
+    if (!itemInEntity.recordExists) {
+        revert IInventoryErrors.Inventory_InvalidItem("ItemSeller: item is not created on-chain", itemInEntity.itemId);
+    }
+
+    InventoryItem[] memory inItems = new InventoryItem[](1);
+    inItems[0] = InventoryItem(
+        inventoryItemId,
+        tx.origin,
+        itemInEntity.itemId,
+        itemInEntity.typeId,
+        itemInEntity.volume,
+        quantity
+    );
+
+    _inventoryLib().ephemeralToInventoryTransfer(smartObjectId, inItems);
+  }
   /**
    * @dev Collect the ERC-20 tokens from the contract
    * @param smartObjectId The smart object id of the SSU
@@ -178,6 +261,13 @@ contract ItemSeller is System {
 
   function getContractAddress() public returns (address) {
     return address(this);
+  }
+
+  function getQuantity(uint256 smartObjectId, uint256 inventoryItemId) public returns (uint) {
+    return InventoryItemTable.getQuantity(
+      _namespace().inventoryItemTableId(),
+       smartObjectId,
+       inventoryItemId);
   }
 
   function _inventoryLib() internal view returns (InventoryLib.World memory) {
