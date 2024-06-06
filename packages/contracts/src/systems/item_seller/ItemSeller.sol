@@ -28,6 +28,9 @@ import { ItemPrice, ItemPriceData } from "../../codegen/tables/ItemPrice.sol";
 import { Utils as ItemSellerUtils } from "./Utils.sol";
 import { Utils as InventoryUtils } from "@eveworld/world/src/modules/inventory/Utils.sol";
 
+import { ItemData } from "./ItemData.sol";
+import { Liquidity } from "./Liquidity.sol";
+
 import { IWorld } from "../../codegen/world/IWorld.sol" ;
 /**
  * @dev This contract is an example for extending Inventory functionality from game.
@@ -40,13 +43,102 @@ contract ItemSeller is System {
   using ItemSellerUtils for bytes14;
   using SmartDeployableUtils for bytes14;
 
-  struct Item {
-    uint256 itemId; // id of item
-    uint256 price; // price of item (wei)
-    uint256 targetQuantity; // quantity where the price would be the lowest
+
+  mapping(uint256 => ItemData) public items;
+  mapping(uint256 => ItemData) public items2;
+  mapping(address => Liquidity) public investors;
+  mapping(uint256 => Liquidity) public investors2;
+
+  event itemsEvent(uint256 indexed _itemDataId);
+  uint256 public itemCount;
+  uint256 public investorsCount;
+  uint256 public totalFees;
+  uint256 public totalInvested;
+
+  constructor() public {
+    investorsCount = 0;
+    itemCount = 0;
+    totalFees = 0;
+    totalInvested = 0;
   }
 
-  Item[] public Items;
+  function getAllItems() public view returns (ItemData[] memory) {
+     ItemData[] memory id = new ItemData[](itemCount);
+
+    for (uint i = 0; i < itemCount; i++) {
+      ItemData storage item = items2[i];
+      id[i] = item;
+    }
+  
+    return id;
+    
+    }
+
+  function invest(uint256 smartObjectId, uint256 amount) public {
+
+    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
+    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
+
+    IERC20(ssuData.tokenAddress).transferFrom(tx.origin, address(this), amount);
+
+    Liquidity storage i = investors[tx.origin];
+    i.invested += amount;
+    totalInvested += amount;
+    investorsCount++;
+  }
+
+  function giveBackInvestment(uint256 smartObjectId) public {
+
+    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
+    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
+
+    address tokenAddress = ssuData.tokenAddress;
+
+    uint256 invested = investors[tx.origin].invested;
+
+    IERC20(tokenAddress).transfer(tx.origin, invested);
+
+    totalInvested -= invested;
+    invested = 0;
+
+  }
+
+  function collectRewards(uint256 smartObjectId) public {
+
+    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
+    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
+
+    address tokenAddress = ssuData.tokenAddress;
+
+    uint256 rewards = investors[tx.origin].rewards;
+
+    IERC20(tokenAddress).transfer(tx.origin, rewards);
+
+    rewards = 0;
+
+  }
+
+  function getAllInvestments() public view returns (Liquidity[] memory){
+    Liquidity[] memory id = new Liquidity[](investorsCount);
+
+    for (uint i = 0; i < investorsCount; i++){
+      Liquidity storage investor = investors2[i];
+      id[i] = investor;
+    }
+
+    return id;
+  }
+
+
+  /**
+   * @dev Get the price of an item in ERC-20 tokens
+   * @param smartObjectId The smart object id of the SSU
+   * @param inventoryItemId The item id of the item
+   */
+  function getItemPriceData(uint256 smartObjectId, uint256 inventoryItemId) public view returns (uint256,uint256,uint256) {
+    ItemData storage i = items[inventoryItemId];
+    return (i.inventoryItemId, i.price, i.targetQuantity);
+    }
 
   /**
    * @dev Only owner modifer
@@ -61,10 +153,6 @@ contract ItemSeller is System {
 
   function world() internal view returns (IWorld){
     return IWorld(_world());
-  }
-
-  function _initialMsgSender() internal view returns (address) {
-    return world().initialMsgSender();
   }
   /**
    * @dev Register an ERC-20 token to be used for swapping with Inventory items
@@ -89,7 +177,7 @@ contract ItemSeller is System {
    * @param smartObjectId The smart object id of the SSU
    * @param receiver The address of the receiver of the token
    */
-  function updateERC20Receiver(uint256 smartObjectId, address receiver) public onlyOwner(smartObjectId) {
+  function updateERC20Receiver(uint256 smartObjectId, address receiver) public {
     require(receiver != address(0), "Invalid address");
 
     ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
@@ -104,17 +192,11 @@ contract ItemSeller is System {
    * @param inventoryItemId The item id of the item
    * @param price The price of the item in ERC-20 tokens
    */
-  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price, uint256 targetQuantity) public onlyOwner(smartObjectId) {
+  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price, uint256 targetQuantity) public{
     require(price > 0, "Price cannot be 0");
-
-    Items.push(Item(inventoryItemId, price, targetQuantity));
-
-    // ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
-    // require(ssuData.tokenAddress != address(0), "Invalid Smart Object ID");
-
-    // ItemPrice.set(smartObjectId, inventoryItemId, true, price);
-
-
+    items[inventoryItemId] = ItemData(itemCount, inventoryItemId, price, targetQuantity);
+    items2[itemCount] = ItemData(itemCount, inventoryItemId, price, targetQuantity);
+    itemCount++;
   }
 
   /**
@@ -122,7 +204,7 @@ contract ItemSeller is System {
    * @param smartObjectId The smart object id of the SSU
    * @param inventoryItemId The item id of the item
    */
-  function unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) public onlyOwner(smartObjectId) {
+  function unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) public {
     ItemPrice.set(smartObjectId, inventoryItemId, false, 0);
   }
 
@@ -137,25 +219,52 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
     ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
     require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
 
-    uint256 totalAmount = Items[inventoryItemId].price * quantity;
 
+    ItemData storage i = items[inventoryItemId];
+
+    uint256 price = i.price;
+    uint256 targetQuantity = i.targetQuantity;
+
+    uint256 invQuantityAtTheMoment = InventoryItemTable.getQuantity(
+      _namespace().inventoryItemTableId(),
+       smartObjectId,
+       inventoryItemId);
+
+    uint256 scalefactor = 1000000000000000000;
     // @ invQuantityAtTheMoment Quantity inside the SSU of said Item when executing this function (HOW DO I GET THIS?) DONE
     // @ targetQuantity Max quantity set by the owner for said Item (HOW DO I SET & GET THIS?)
     // @ spreadPercentage Percentage of how full is the inventory for said item
     // @ spreadPrice Price set by the owner, intended to be the finalPrice when spreadPercentage is at 50%
     // @ finalPrice Final price of the item!
-    //
-    // spreadPercentage = invQuantityAtTheMoment / targetQuantity 
-    // finalPrice = (spreadPrice * 2) * (1 - spreadPercentage) 
+    uint256 totalCost = 0;
 
-    // 0.9 = 900 / 1000
-    // 20 = (100 * 2) * (1 - 0.9)
+    // Calculate the price for each item individually
+    for (uint256 qty = 0; qty < quantity; qty++) {
+        uint256 spreadPercentage = invQuantityAtTheMoment * scalefactor / targetQuantity;
+        uint256 finalPrice = price * 2 * (scalefactor - spreadPercentage) / scalefactor;
+        
+        // Add the finalPrice of this item to the total cost
+        totalCost += finalPrice;
+        
+        // Update the inventory quantity as one item is bought
+        invQuantityAtTheMoment--;
+    }
 
-    // User pays/receives 20 EVE for the item
+    totalCost += 1*1e17;
+    totalFees += 1*1e17;
 
-    console.logAddress(address(this));
-    // Transfer tokens from user to this contract
-    IERC20(ssuData.tokenAddress).transferFrom(_initialMsgSender(), address(this), totalAmount);
+    // Transfer the total cost from the user to this contract
+    IERC20(ssuData.tokenAddress).transferFrom(tx.origin, address(this), totalCost);
+
+
+
+    for (uint i = 0; i < investorsCount; i++){
+      Liquidity storage investor = investors2[i];
+      uint256 rewardPercentage = investor.invested * scalefactor / totalInvested;
+      uint256 finalReward = totalFees * rewardPercentage / scalefactor;
+
+      investor.rewards = finalReward; 
+    }
 
     EntityRecordTableData memory itemOutEntity = EntityRecordTable.get(
         _namespace().entityRecordTableId(),
@@ -169,7 +278,7 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
     InventoryItem[] memory outItems = new InventoryItem[](1);
     outItems[0] = InventoryItem(
         inventoryItemId,
-        _initialMsgSender(),
+        tx.origin,
         itemOutEntity.itemId,
         itemOutEntity.typeId,
         itemOutEntity.volume,
@@ -204,11 +313,51 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
     ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
     require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
 
+    ItemData storage i = items[inventoryItemId];
 
-    uint256 totalAmount = Items[inventoryItemId].price * quantity;
+    uint256 price = i.price;
+    uint256 targetQuantity = i.targetQuantity;
 
+    uint256 invQuantityAtTheMoment = InventoryItemTable.getQuantity(
+      _namespace().inventoryItemTableId(),
+       smartObjectId,
+       inventoryItemId);
+    
+    
+    uint256 scalefactor = 1000000000000000000;
 
-    IERC20(ssuData.tokenAddress).transfer(_initialMsgSender(), totalAmount);
+    // @ invQuantityAtTheMoment Quantity inside the SSU of said Item when executing this function (HOW DO I GET THIS?) DONE
+    // @ targetQuantity Max quantity set by the owner for said Item (HOW DO I SET & GET THIS?)
+    // @ spreadPercentage Percentage of how full is the inventory for said item
+    // @ spreadPrice Price set by the owner, intended to be the finalPrice when spreadPercentage is at 50%
+    // @ finalPrice Final price of the item!
+    //
+        uint256 totalCost = 0;
+
+    // Calculate the price for each item individually
+    for (uint256 qty = 0; qty < quantity; qty++) {
+        uint256 spreadPercentage = (invQuantityAtTheMoment + 1) * scalefactor / targetQuantity;
+        uint256 finalPrice = price * 2 * (scalefactor - spreadPercentage) / scalefactor;
+        
+        // Add the finalPrice of this item to the total cost
+        totalCost += finalPrice;
+        
+        // Update the inventory quantity as one item is bought
+        invQuantityAtTheMoment++;
+    }
+
+        totalCost -= 1 * 1e17;
+        totalFees += 1 * 1e17;
+
+    IERC20(ssuData.tokenAddress).transfer(tx.origin, totalCost);
+
+    for (uint i = 0; i < investorsCount; i++){
+      Liquidity storage investor = investors2[i];
+      uint256 rewardPercentage = investor.invested * scalefactor / totalInvested;
+      uint256 finalReward = totalFees * rewardPercentage / scalefactor;
+
+      investor.rewards = finalReward; 
+    }
         
         EntityRecordTableData memory itemInEntity = EntityRecordTable.get(
         _namespace().entityRecordTableId(),
@@ -242,14 +391,6 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
     IERC20(tokenAddress).transfer(ssuData.receiver, IERC20(tokenAddress).balanceOf(address(this)));
   }
 
-  /**
-   * @dev Get the price of an item in ERC-20 tokens
-   * @param smartObjectId The smart object id of the SSU
-   * @param inventoryItemId The item id of the item
-   */
-  function getItemPriceData(uint256 smartObjectId, uint256 inventoryItemId) public returns (ItemPriceData memory) {
-    return ItemPrice.get(smartObjectId, inventoryItemId);
-  }
 
   /**
    * @dev Get the ERC-20 token data

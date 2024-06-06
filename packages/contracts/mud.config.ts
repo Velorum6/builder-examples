@@ -1,12 +1,8 @@
 import { mudConfig } from "@latticexyz/world/register";
 
 export default mudConfig({
-  namespace: "velorumtest11",
+  namespace: "velorumtest25",
   systems: {
-    VendingMachine: {
-      name: "VendingMachine",
-      openAccess: true,
-    },
     ItemSeller: {
       name: "ItemSeller",
       openAccess: true,

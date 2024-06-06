@@ -11,7 +11,8 @@ import { PuppetModule } from "@latticexyz/world-modules/src/modules/puppet/Puppe
 import { IERC20Mintable } from "@latticexyz/world-modules/src/modules/erc20-puppet/IERC20Mintable.sol";
 import { ERC20Module } from "@latticexyz/world-modules/src/modules/erc20-puppet/ERC20Module.sol";
 
-contract PurchaseLensSeller is Script {
+import { ItemData } from "../src/systems/item_seller/ItemData.sol";
+contract getItem is Script {
   function run(address worldAddress) external {
     // Load the private key from the `PRIVATE_KEY` environment variable (in .env)
     uint256 playerPrivateKey = vm.envUint("PLAYER_PRIVATE_KEY");
@@ -24,13 +25,7 @@ contract PurchaseLensSeller is Script {
     //Read from .env
     uint256 smartStorageUnitId = vm.envUint("SSU_ID");
     uint256 inventoryItemId = vm.envUint("INVENTORY_ITEM_ID");
-
-    // uint256 smartStorageUnitId = uint256(keccak256(abi.encode("item:<tenant_id>-<db_id>-2345")));
-    address contractAddress = IItemSeller(worldAddress).velorumtest25__getContractAddress();
-    //The method below will change based on the namespace you have configurd. If the namespace is changed, make sure to update the method name
-    IItemSeller(worldAddress).velorumtest25__purchaseItem(smartStorageUnitId, inventoryItemId, 100);
     vm.stopBroadcast();
-    
   }
 
   function itemSellerSystemId() internal pure returns (uint256) {

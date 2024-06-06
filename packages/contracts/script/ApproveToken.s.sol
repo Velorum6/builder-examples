@@ -29,13 +29,13 @@ contract ApproveToken is Script {
     address erc20Address = address(tokenAddress);
 
     // The address of the recipient
-    uint256 amount = 1;
+    uint256 amount = 1000;
 
     StoreSwitch.setStoreAddress(worldAddress);
     IBaseWorld world = IBaseWorld(worldAddress);
 
     vm.startBroadcast(playerPrivateKey);
-    address itemSellerAddress = IItemSeller(worldAddress).velorumtest11__getContractAddress();
+    address itemSellerAddress = IItemSeller(worldAddress).velorumtest25__getContractAddress();
     console.log(itemSellerAddress);
 
     // StoreSwitch.setStoreAddress(address(world));

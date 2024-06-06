@@ -21,9 +21,9 @@ contract ConfigureLensSeller is Script {
     uint256 targetQuantity = vm.envUint("TARGET_QUANTITY");
 
     //The method below will change based on the namespace you have configurd. If the namespace is changed, make sure to update the method name
-    IItemSeller(worldAddress).velorumtest11__registerERC20Token(smartStorageUnitId, tokenAddress, receiver);
+    IItemSeller(worldAddress).velorumtest25__registerERC20Token(smartStorageUnitId, tokenAddress, receiver);
 
-    IItemSeller(worldAddress).velorumtest11__setItemPrice(smartStorageUnitId, inventoryItemId, price, targetQuantity);
+    IItemSeller(worldAddress).velorumtest25__setItemPrice(smartStorageUnitId, inventoryItemId, price, targetQuantity);
 
     vm.stopBroadcast();
   }
