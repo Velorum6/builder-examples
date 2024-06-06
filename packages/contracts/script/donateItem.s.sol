@@ -26,12 +26,12 @@ contract donateItem is Script {
     uint256 inventoryItemId = vm.envUint("INVENTORY_ITEM_ID");
 
     // uint256 smartStorageUnitId = uint256(keccak256(abi.encode("item:<tenant_id>-<db_id>-2345")));
-    address contractAddress = IItemSeller(worldAddress).velorumtest25__getContractAddress();
-    uint256 quantity = IItemSeller(worldAddress).velorumtest25__getQuantity(smartStorageUnitId,inventoryItemId);
+    address contractAddress = IItemSeller(worldAddress).velorumtest42__getContractAddress();
+    uint256 quantity = IItemSeller(worldAddress).velorumtest42__getQuantity(smartStorageUnitId,inventoryItemId);
     console.log(quantity);
     
     //The method below will change based on the namespace you have configurd. If the namespace is changed, make sure to update the method name
-    IItemSeller(worldAddress).velorumtest25__sellItem(smartStorageUnitId, inventoryItemId, 100);
+    IItemSeller(worldAddress).velorumtest42__sellItem(smartStorageUnitId, inventoryItemId, 100);
     vm.stopBroadcast();
   }
 

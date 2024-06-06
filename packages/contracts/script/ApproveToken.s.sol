@@ -35,7 +35,7 @@ contract ApproveToken is Script {
     IBaseWorld world = IBaseWorld(worldAddress);
 
     vm.startBroadcast(playerPrivateKey);
-    address itemSellerAddress = IItemSeller(worldAddress).velorumtest25__getContractAddress();
+    address itemSellerAddress = IItemSeller(worldAddress).velorumtest42__getContractAddress();
     console.log(itemSellerAddress);
 
     // StoreSwitch.setStoreAddress(address(world));

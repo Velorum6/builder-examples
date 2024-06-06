@@ -29,7 +29,6 @@ import { Utils as ItemSellerUtils } from "./Utils.sol";
 import { Utils as InventoryUtils } from "@eveworld/world/src/modules/inventory/Utils.sol";
 
 import { ItemData } from "./ItemData.sol";
-import { Liquidity } from "./Liquidity.sol";
 
 import { IWorld } from "../../codegen/world/IWorld.sol" ;
 /**
@@ -46,20 +45,11 @@ contract ItemSeller is System {
 
   mapping(uint256 => ItemData) public items;
   mapping(uint256 => ItemData) public items2;
-  mapping(address => Liquidity) public investors;
-  mapping(uint256 => Liquidity) public investors2;
-
   event itemsEvent(uint256 indexed _itemDataId);
   uint256 public itemCount;
-  uint256 public investorsCount;
-  uint256 public totalFees;
-  uint256 public totalInvested;
 
   constructor() public {
-    investorsCount = 0;
     itemCount = 0;
-    totalFees = 0;
-    totalInvested = 0;
   }
 
   function getAllItems() public view returns (ItemData[] memory) {
@@ -71,64 +61,7 @@ contract ItemSeller is System {
     }
   
     return id;
-    
     }
-
-  function invest(uint256 smartObjectId, uint256 amount) public {
-
-    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
-    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
-
-    IERC20(ssuData.tokenAddress).transferFrom(tx.origin, address(this), amount);
-
-    Liquidity storage i = investors[tx.origin];
-    i.invested += amount;
-    totalInvested += amount;
-    investorsCount++;
-  }
-
-  function giveBackInvestment(uint256 smartObjectId) public {
-
-    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
-    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
-
-    address tokenAddress = ssuData.tokenAddress;
-
-    uint256 invested = investors[tx.origin].invested;
-
-    IERC20(tokenAddress).transfer(tx.origin, invested);
-
-    totalInvested -= invested;
-    invested = 0;
-
-  }
-
-  function collectRewards(uint256 smartObjectId) public {
-
-    ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
-    require(ssuData.tokenAddress != address(0), "Invalid ERC20 Data");
-
-    address tokenAddress = ssuData.tokenAddress;
-
-    uint256 rewards = investors[tx.origin].rewards;
-
-    IERC20(tokenAddress).transfer(tx.origin, rewards);
-
-    rewards = 0;
-
-  }
-
-  function getAllInvestments() public view returns (Liquidity[] memory){
-    Liquidity[] memory id = new Liquidity[](investorsCount);
-
-    for (uint i = 0; i < investorsCount; i++){
-      Liquidity storage investor = investors2[i];
-      id[i] = investor;
-    }
-
-    return id;
-  }
-
 
   /**
    * @dev Get the price of an item in ERC-20 tokens
@@ -177,7 +110,7 @@ contract ItemSeller is System {
    * @param smartObjectId The smart object id of the SSU
    * @param receiver The address of the receiver of the token
    */
-  function updateERC20Receiver(uint256 smartObjectId, address receiver) public {
+  function updateERC20Receiver(uint256 smartObjectId, address receiver) public onlyOwner(smartObjectId) {
     require(receiver != address(0), "Invalid address");
 
     ItemSellerERC20Data memory ssuData = ItemSellerERC20.get(smartObjectId);
@@ -192,7 +125,7 @@ contract ItemSeller is System {
    * @param inventoryItemId The item id of the item
    * @param price The price of the item in ERC-20 tokens
    */
-  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price, uint256 targetQuantity) public{
+  function setItemPrice(uint256 smartObjectId, uint256 inventoryItemId, uint256 price, uint256 targetQuantity) public onlyOwner(smartObjectId) {
     require(price > 0, "Price cannot be 0");
     items[inventoryItemId] = ItemData(itemCount, inventoryItemId, price, targetQuantity);
     items2[itemCount] = ItemData(itemCount, inventoryItemId, price, targetQuantity);
@@ -204,7 +137,7 @@ contract ItemSeller is System {
    * @param smartObjectId The smart object id of the SSU
    * @param inventoryItemId The item id of the item
    */
-  function unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) public {
+  function unsetItemPrice(uint256 smartObjectId, uint256 inventoryItemId) public onlyOwner(smartObjectId) {
     ItemPrice.set(smartObjectId, inventoryItemId, false, 0);
   }
 
@@ -250,21 +183,9 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
         invQuantityAtTheMoment--;
     }
 
-    totalCost += 1*1e17;
-    totalFees += 1*1e17;
-
     // Transfer the total cost from the user to this contract
     IERC20(ssuData.tokenAddress).transferFrom(tx.origin, address(this), totalCost);
 
-
-
-    for (uint i = 0; i < investorsCount; i++){
-      Liquidity storage investor = investors2[i];
-      uint256 rewardPercentage = investor.invested * scalefactor / totalInvested;
-      uint256 finalReward = totalFees * rewardPercentage / scalefactor;
-
-      investor.rewards = finalReward; 
-    }
 
     EntityRecordTableData memory itemOutEntity = EntityRecordTable.get(
         _namespace().entityRecordTableId(),
@@ -346,18 +267,7 @@ function purchaseItem(uint256 smartObjectId, uint256 inventoryItemId, uint256 qu
         invQuantityAtTheMoment++;
     }
 
-        totalCost -= 1 * 1e17;
-        totalFees += 1 * 1e17;
-
     IERC20(ssuData.tokenAddress).transfer(tx.origin, totalCost);
-
-    for (uint i = 0; i < investorsCount; i++){
-      Liquidity storage investor = investors2[i];
-      uint256 rewardPercentage = investor.invested * scalefactor / totalInvested;
-      uint256 finalReward = totalFees * rewardPercentage / scalefactor;
-
-      investor.rewards = finalReward; 
-    }
         
         EntityRecordTableData memory itemInEntity = EntityRecordTable.get(
         _namespace().entityRecordTableId(),
